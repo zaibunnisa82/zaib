@@ -1,0 +1,111 @@
+imds = imageDatastore('RealFake', ...
+    'IncludeSubfolders',true, ...
+    'LabelSource','foldernames');
+
+[imdsTrain,imdsTest] = splitEachLabel(imds,0.7,'randomized');
+
+numTrainImages = numel(imdsTrain.Labels);
+idx = randperm(numTrainImages,16);
+figure
+for i = 1:16
+    subplot(4,4,i)
+    I = readimage(imdsTrain,idx(i));
+    imshow(I)
+end
+
+net = alexnet;
+
+net.Layers;
+
+inputSize = net.Layers(1).InputSize;
+
+augimdsTrain = augmentedImageDatastore(inputSize(1:2),imdsTrain);
+augimdsTest = augmentedImageDatastore(inputSize(1:2),imdsTest);
+
+layer7 = 'fc7';
+featuresTrain7 = activations(net,augimdsTrain,layer7,'OutputAs','rows');
+featuresTest7 = activations(net,augimdsTest,layer7,'OutputAs','rows');
+
+layer6 = 'fc6';
+featuresTrain6 = activations(net,augimdsTrain,layer6,'OutputAs','rows');
+featuresTest6 = activations(net,augimdsTest,layer6,'OutputAs','rows');
+
+layer8 = 'fc8';
+featuresTrain8 = activations(net,augimdsTrain,layer8,'OutputAs','rows');
+featuresTest8 = activations(net,augimdsTest,layer8,'OutputAs','rows');
+
+%t = templateDiscriminant('DiscrimType','Linear');
+
+YTrain = imdsTrain.Labels;
+YTest = imdsTest.Labels;
+
+%Mdl = fitcensemble(meas,species,'Method','Subspace','Learners',t);
+%classifier7 = fitcecoc(featuresTrain7,YTrain,'Method','Subspace');
+%trying to apply svmlayer7 = 'fc7';
+featuresTrain7 = activations(net,augimdsTrain,layer7,'OutputAs','rows');
+featuresTest7 = activations(net,augimdsTest,layer7,'OutputAs','rows');
+
+classifier7 = fitcsvm(featuresTrain7,YTrain)
+classifier6 = fitcsvm(featuresTrain6,YTrain)
+classifier8 = fitcsvm(featuresTrain8,YTrain)
+
+YPred7 = predict(classifier7,featuresTest7);
+YPred6 = predict(classifier6,featuresTest6);
+YPred8 = predict(classifier8,featuresTest8);
+
+ALEXaccuracy7svm = mean(YPred7 == YTest)
+ALEXaccuracy6svm = mean(YPred6 == YTest)
+ALEXaccuracy8svm = mean(YPred8 == YTest)
+
+% Applying Naive Bayes
+classifier7nb = fitcnb(featuresTrain7,YTrain)
+classifier6nb = fitcnb(featuresTrain6,YTrain)
+classifier8nb = fitcnb(featuresTrain8,YTrain)
+
+YPred7nb = predict(classifier7nb,featuresTest7);
+YPred6nb = predict(classifier6nb,featuresTest6);
+YPred8nb = predict(classifier8nb,featuresTest8);
+
+ALEXaccuracy7nb = mean(YPred7nb == YTest)
+ALEXaccuracy6nb = mean(YPred6nb == YTest)
+ALEXaccuracy8nb = mean(YPred8nb == YTest)
+
+% now we are going to apply Discriminant Analysis 
+% MdlLinear = fitcdiscr(meas,species);
+
+classifier7da = fitcdiscr(featuresTrain7,YTrain)
+classifier6da = fitcdiscr(featuresTrain6,YTrain)
+classifier8da = fitcdiscr(featuresTrain8,YTrain)
+
+YPred7da = predict(classifier7da,featuresTest7);
+YPred6da = predict(classifier6da,featuresTest6);
+YPred8da = predict(classifier8da,featuresTest8);
+
+ALEXaccuracy7da = mean(YPred7da == YTest)
+ALEXaccuracy6da = mean(YPred6da == YTest)
+ALEXaccuracy8da = mean(YPred8da == YTest)
+
+% combining features 
+
+combine_featuresTrain = [featuresTrain7;featuresTrain6]
+combine_featuresTest = [featuresTest7;featuresTest6]
+% As we have concatenated fetures, so we have to concatenate YTrain and
+% test as well .. to match training and testing labels. 
+YTrain2 = [YTrain;YTrain]
+YTest2 = [YTest;YTest]
+
+% applying Linear Discrminant Analysis concatenated features 
+classifierCombLDA = fitcdiscr(combine_featuresTrain,YTrain2);
+YPredCombLDA = predict(classifierCombLDA,combine_featuresTest);
+ALEXaccuracyCombLDA = mean(YPredCombLDA == YTest2)
+
+% applying SVM on cancatenated features
+classifierCombSVM = fitcsvm(combine_featuresTrain,YTrain2);
+YPredCombSVM = predict(classifierCombSVM,combine_featuresTest);
+ALEXaccuracyCombSVM = mean(YPredCombSVM == YTest2)
+
+% applying ecoc error correcting output code
+classifierCEOC = fitcecoc(featuresTrain6,YTrain);
+YPredCEOC = predict(classifierCEOC,featuresTest6);
+ALEXaccuracyCEOC = mean(YPredCEOC == YTest)
+
