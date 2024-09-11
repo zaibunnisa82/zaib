@@ -179,3 +179,53 @@ def plot_loss_curves(history):
   plt.title('Accuracy')
   plt.xlabel('Epochs')
   plt.legend();
+
+# Resnet50 
+
+res_model = tf.keras.applications.ResNet50(
+    include_top=False,
+    weights='imagenet',
+    input_shape=(Image_Size, Image_Size,Channels)
+)
+
+from tensorflow.keras import models, layers
+from keras.layers import Convolution2D, MaxPooling2D, ZeroPadding2D, GlobalAveragePooling2D, AveragePooling2D
+from keras.layers import Dense, Dropout, Activation, Flatten
+from keras.layers import BatchNormalization
+
+model2 = models.Sequential([res_model,
+                    GlobalAveragePooling2D(),
+                    Dense(512, activation = "relu"),
+                    BatchNormalization(),
+                    Dropout(0.3),
+                    Dense(128, activation = "relu"),
+                    Dropout(0.1),
+                    # Dense(32, activation = "relu"),
+                    # Dropout(0.3),
+                    Dense(2, activation = "softmax")])
+
+model2.layers[0].trainable = False
+
+model2.compile(loss="sparse_categorical_crossentropy", optimizer="adam", metrics="accuracy")
+
+model2.summary()
+
+def scheduler(epoch):
+    if epoch <= 2:
+        return 0.001
+    elif epoch > 2 and epoch <= 15:
+        return 0.0001 
+    else:
+        return 0.00001
+
+lr_callbacks = tf.keras.callbacks.LearningRateScheduler(scheduler)
+
+history2 = model2.fit(
+    train_ds,
+    epochs=275,
+    batch_size=Batch_Size,
+    verbose=1,
+    validation_data=val_ds
+)
+
+plot_loss_curves(history2)
