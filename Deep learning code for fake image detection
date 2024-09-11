@@ -222,7 +222,7 @@ lr_callbacks = tf.keras.callbacks.LearningRateScheduler(scheduler)
 
 history2 = model2.fit(
     train_ds,
-    epochs=275,
+    epochs=10,
     batch_size=Batch_Size,
     verbose=1,
     validation_data=val_ds
